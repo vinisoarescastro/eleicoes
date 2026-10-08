@@ -138,36 +138,41 @@ Regras:
 
 ## Deploy na VPS
 
-1. Instale Docker + Compose plugin, copie o projeto (sem o `.env` local) e crie um `.env` novo com senhas próprias.
-   Defina `API_TOKEN` para restringir os endpoints de dados brutos; o mapa continua público.
-2. Ajuste `PG_SHARED_BUFFERS` (~25% da RAM) e confira o disco. Referência medida no 1º turno de 2026 (carga `ALL`):
-   ~68 milhões de linhas de votos + 2,5 milhões de detalhe + locais, malhas e agregados do mapa: banco com ~10 GB.
-   Primeira carga: ~45 min de votos + ~6 min de locais/malhas/agregados (SP sozinho: 17 mi linhas, ~14 min).
-   Atualização completa após republicação do TSE: ~55 min (inclui ~13 min de atualização dos agregados sem bloquear o mapa).
-   Reserve ao menos 30 GB livres: a staging temporária de SP, o WAL, a atualização dos agregados e o 2º turno somam espaço extra.
-3. `docker compose up -d --build db api`
-4. As portas ficam em `127.0.0.1`. Publique o mapa via proxy reverso com HTTPS, por exemplo com Caddy
-   (certificado automático; o servidor deve ter o DNS apontado e as portas 80/443 liberadas):
-   ```
-   mapa.seudominio.com.br {
-       encode gzip
-       header {
-           Strict-Transport-Security "max-age=31536000"
-           X-Content-Type-Options "nosniff"
-           Referrer-Policy "strict-origin-when-cross-origin"
-           X-Frame-Options "DENY"
-       }
-       reverse_proxy 127.0.0.1:8010
-   }
-   ```
-   Como o mapa é público, considere limitar requisições por IP (ex.: Nginx `limit_req` ou plugin de rate limit do Caddy)
-   e um cache no proxy para os endpoints `/mapa/*`, que já enviam `Cache-Control: max-age=300`.
-   Para acessar o banco, use túnel SSH (`ssh -L 5435:127.0.0.1:5435 usuario@vps`) em vez de abrir a porta.
-5. Atualização periódica via cron do host (exemplo: de hora em hora):
-   ```
-   0 * * * * cd /opt/dados-tse-26 && docker compose run --rm etl --arquivos ALL >> /var/log/dados-tse-etl.log 2>&1
-   ```
-6. Backup: `docker compose exec db pg_dump -U <usuario> -Fc tse > tse.dump` (os dados podem ser recarregados do TSE, mas o dump evita horas de carga).
+Requisitos: Ubuntu 22.04/24.04 ou Debian 12, acesso root, **DNS do domínio apontando para a VPS**, portas 80/443 livres.
+Dimensionamento (1º turno 2026, carga `ALL`): banco com ~10 GB; reserve **30 GB livres** (staging de SP, WAL, agregados,
+backups e 2º turno). RAM recomendada: 4 GB ou mais. Primeira carga: ~1 h.
+
+### Instalação (um comando)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vinisoarescastro/eleicoes/main/deploy/instalar_vps.sh -o instalar_vps.sh
+sudo DOMINIO=mapa.seudominio.com.br bash instalar_vps.sh
+```
+
+O script [`deploy/instalar_vps.sh`](deploy/instalar_vps.sh) (idempotente):
+1. instala Docker e Caddy pelos repositórios oficiais;
+2. clona o projeto em `/opt/eleicoes`;
+3. cria um `.env` **novo** com senhas aleatórias (`chmod 600`) e `shared_buffers` ≈ 25% da RAM (não sobrescreve um `.env` existente);
+4. sobe banco e API (portas só em `127.0.0.1`);
+5. configura o Caddy ([`deploy/Caddyfile.modelo`](deploy/Caddyfile.modelo)): HTTPS automático, compressão e cabeçalhos de segurança;
+6. agenda a atualização dos dados de hora em hora (com `flock`) e o backup diário (`/etc/cron.d/eleicoes`), com rotação de logs;
+7. libera no firewall (ufw) apenas SSH, 80 e 443 (`CONFIGURAR_FIREWALL=nao` para pular);
+8. dispara a carga inicial em segundo plano (`CARGA_INICIAL=nao` para pular). Acompanhe: `tail -f /var/log/eleicoes-etl.log`.
+
+Repositório privado: use `REPO=git@github.com:vinisoarescastro/eleicoes.git` com uma *deploy key* (somente leitura) cadastrada no GitHub.
+
+### Operação
+
+| Tarefa | Comando (na VPS) |
+|---|---|
+| Atualizar a aplicação (código + migrações) | `sudo bash /opt/eleicoes/deploy/atualizar.sh` |
+| Backup manual | `sudo bash /opt/eleicoes/deploy/backup.sh` (padrão: `/var/backups/eleicoes`, mantém 3 dias) |
+| Logs da carga | `tail -f /var/log/eleicoes-etl.log` |
+| Situação das cargas | `curl -s http://127.0.0.1:8010/cargas` |
+| Acesso ao banco | túnel SSH: `ssh -L 5435:127.0.0.1:5435 usuario@vps` (não abra a porta) |
+
+Defina `API_TOKEN` no `.env` para restringir os endpoints de dados brutos; o mapa continua público.
+Como o mapa é público, considere também limitar requisições por IP (plugin de rate limit do Caddy ou Nginx `limit_req`).
 
 ## Observações
 
