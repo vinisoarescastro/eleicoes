@@ -1,4 +1,4 @@
-# dados-tse-26
+# eleicoes
 
 Carga dos **votos por seção eleitoral** das Eleições 2026 (dados abertos do TSE) em PostgreSQL/PostGIS, com API somente leitura
 e **mapa web público** (Brasil → estado → município → bairro → local de votação e seções).

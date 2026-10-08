@@ -1,4 +1,4 @@
-name: dados-tse-26
+name: eleicoes
 
 # Portas publicadas apenas em 127.0.0.1: na VPS, exponha a API via proxy reverso (Caddy/Nginx) com HTTPS.
 services:

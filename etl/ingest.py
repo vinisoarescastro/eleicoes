@@ -498,7 +498,7 @@ def executar(args) -> bool:
             log.warning("Outra carga está em andamento; encerrando sem fazer nada")
             return True
         aplicar_migracoes(conn)
-        sess.headers["User-Agent"] = "dados-tse-26-etl/1.0"
+        sess.headers["User-Agent"] = "eleicoes-etl/1.0"
 
         arquivos = parse_arquivos(args.arquivos)
         votos_alterados = localizacao_alterada = False
