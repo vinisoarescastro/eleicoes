@@ -1,0 +1,28 @@
+{
+  "_comentario": "Configuração visual do mapa. 'destaques' fixa a cor de candidatos específicos em toda a aplicação (chave: cargo + unidade eleitoral + número), com variante para o tema escuro. As demais entidades recebem cores da 'paleta_neutra' (ou 'escuro.paleta_neutra'), em ordem de votos, no máximo 3 cores por recorte. Vermelho e azul são exclusivos dos destaques. Paletas validadas para daltonismo (scripts/validate_palette.js, todos os pares) em cada tema.",
+  "turnos": [
+    { "id": "1t", "nome": "1º turno", "data": "04/10/2026", "federal": 6257, "estadual": 6259 }
+  ],
+  "destaques": [
+    { "cargo": 1, "ue": "BR", "numero": 13, "cor": "#e34948", "cor_escuro": "#e34948", "descricao": "Lula: vermelho" },
+    { "cargo": 1, "ue": "BR", "numero": 22, "cor": "#2a78d6", "cor_escuro": "#3987e5", "descricao": "Flávio Bolsonaro: azul" }
+  ],
+  "paleta_neutra": ["#eda100", "#1baf7a", "#4a3aa7"],
+  "cor_outros": "#d3d1c9",
+  "cor_sem_dados": "#f1f0ec",
+  "escuro": {
+    "paleta_neutra": ["#2aa889", "#c98500", "#9085e9"],
+    "cor_outros": "#55544f",
+    "cor_sem_dados": "#2c2c2a"
+  },
+  "estilos": {
+    "claro": "https://tiles.openfreemap.org/styles/positron",
+    "escuro": "https://tiles.openfreemap.org/styles/dark"
+  },
+  "satelite": {
+    "_licenca": "Esri World Imagery: uso sujeito aos termos da Esri (atribuição obrigatória; uso público/comercial pode exigir conta ArcGIS). Verificar antes de publicar ou trocar por outro provedor de imagens.",
+    "tiles": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    "maxzoom": 19,
+    "atribuicao": "Imagens © Esri, Maxar, Earthstar Geographics"
+  }
+}

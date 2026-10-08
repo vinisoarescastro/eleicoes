@@ -1,0 +1,74 @@
+name: dados-tse-26
+
+# Portas publicadas apenas em 127.0.0.1: na VPS, exponha a API via proxy reverso (Caddy/Nginx) com HTTPS.
+services:
+  db:
+    # PostgreSQL 17 + PostGIS (mapas). Mesma versão major do postgres:17, compatível com o volume existente.
+    image: postgis/postgis:17-3.5-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-tse}
+      POSTGRES_USER: ${POSTGRES_USER:-tse_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      TSE_LEITURA_PASSWORD: ${TSE_LEITURA_PASSWORD:?defina TSE_LEITURA_PASSWORD no .env}
+    command:
+      - postgres
+      - -c
+      - shared_buffers=${PG_SHARED_BUFFERS:-256MB}
+      - -c
+      - work_mem=${PG_WORK_MEM:-32MB}
+      - -c
+      - maintenance_work_mem=${PG_MAINTENANCE_WORK_MEM:-512MB}
+      - -c
+      - max_wal_size=${PG_MAX_WAL_SIZE:-4GB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "127.0.0.1:${DB_PORT:-5435}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Executado sob demanda: docker compose run --rm etl --ufs AC
+  etl:
+    build: ./etl
+    profiles: ["etl"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGPORT: "5432"
+      PGDATABASE: ${POSTGRES_DB:-tse}
+      PGUSER: ${POSTGRES_USER:-tse_admin}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      ETL_ANO: ${ETL_ANO:-2026}
+      ETL_ARQUIVOS: ${ETL_ARQUIVOS:-AC,BR}
+      ETL_DIR_DOWNLOAD: /dados
+    volumes:
+      - downloads:/dados
+
+  api:
+    build: ./api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGPORT: "5432"
+      PGDATABASE: ${POSTGRES_DB:-tse}
+      PGUSER: tse_leitura
+      PGPASSWORD: ${TSE_LEITURA_PASSWORD}
+      PGOPTIONS: "-c statement_timeout=${API_STATEMENT_TIMEOUT_MS:-20000} -c default_transaction_read_only=on"
+      API_TOKEN: ${API_TOKEN:-}
+      API_POOL_MAX: ${API_POOL_MAX:-10}
+    ports:
+      - "127.0.0.1:${API_PORT:-8010}:8000"
+
+volumes:
+  pgdata:
+  downloads:
